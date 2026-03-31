@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>منظم الأدوية</title>
+
+<style>
+body {
+    font-family: Arial;
+    direction: rtl;
+    background:blanchedalmond;
+    text-align: center;
+}
+
+.container {
+    max-width: 400px;
+    margin: auto;
+}
+
+input, button {
+    width: 90%;
+    padding: 10px;
+    margin: 5px;
+    border-radius: 8px;
+}
+
+button {
+    background: #4CAF50;
+    color: white;
+    border: none;
+}
+
+.card {
+    background: white;
+    padding: 10px;
+    margin: 10px;
+    border-radius: 10px;
+    text-align: right;
+}
+
+.day {
+    background: #eee;
+    padding: 8px;
+    margin: 5px 0;
+    border-radius: 6px;
+}
+
+.done {
+    background: #c8f7c5;
+}
+.delete {
+    background: red;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>💊 منظم الأدوية</h2>
+
+<input type="text" id="name" placeholder="اسم العلاج">
+<input type="number" id="pills" placeholder="عدد الحبات">
+<input type="number" id="days" placeholder="عدد الأيام">
+<input type="time" id="time">
+
+<button onclick="addMed()">➕ إضافة علاج</button>
+
+<div id="list"></div>
+
+</div>
+
+<script>
+
+let meds = JSON.parse(localStorage.getItem("meds")) || [];
+
+function save() {
+    localStorage.setItem("meds", JSON.stringify(meds));
+}
+
+function requestPermission() {
+    if (Notification.permission !== "granted") {
+        Notification.requestPermission();
+    }
+}
+
+function addMed() {
+    let name = document.getElementById("name").value;
+    let pills = parseInt(document.getElementById("pills").value);
+    let days = parseInt(document.getElementById("days").value);
+    let time = document.getElementById("time").value;
+
+    if (!name || !pills || !days || !time) {
+        alert("عبّ كل البيانات");
+        return;
+    }
+
+    requestPermission();
+
+    meds.push({
+        id: Date.now(),
+        name,
+        pills,
+        days,
+        time,
+        perDay: Math.ceil(pills / days),
+        done: []
+    });
+
+    save();
+    scheduleNotification(name, time);
+    render();
+}
+
+function scheduleNotification(name, time) {
+    let [hour, minute] = time.split(":");
+
+    setInterval(() => {
+        let now = new Date();
+        if (now.getHours() == hour && now.getMinutes() == minute) {
+            new Notification("💊 وقت الدواء", {
+                body: name
+            });
+        }
+    }, 60000);
+}
+
+function toggleDay(medId, day) {
+    let med = meds.find(m => m.id === medId);
+
+    if (med.done.includes(day)) {
+        med.done = med.done.filter(d => d !== day);
+    } else {
+        med.done.push(day);
+    }
+
+    save();
+    render();
+}
+
+function deleteMed(id) {
+    meds = meds.filter(m => m.id !== id);
+    save();
+    render();
+}
+
+function render() {
+    let list = document.getElementById("list");
+    list.innerHTML = "";
+
+    meds.forEach(med => {
+        let card = document.createElement("div");
+        card.className = "card";
+
+        let daysHTML = "";
+        for (let i = 1; i <= med.days; i++) {
+            let doneClass = med.done.includes(i) ? "done" : "";
+            daysHTML += `
+                <div class="day ${doneClass}" onclick="toggleDay(${med.id}, ${i})">
+                    اليوم ${i} (${med.perDay} حبة)
+                </div>
+            `;
+        }
+
+        card.innerHTML = `
+            <h3>${med.name}</h3>
+            <p>⏰ ${med.time} | 💊 ${med.perDay} حبة يوميًا</p>
+            ${daysHTML}
+            <button class="delete" onclick="deleteMed(${med.id})">حذف</button>
+        `;
+
+        list.appendChild(card);
+    });
+}
+
+render();
+
+</script>
+
+</body>
+</html>
